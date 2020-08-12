@@ -29,6 +29,11 @@ import sys
 import numpy as np
 
 def getTuples_rec(lst, sizeLeft, trieNode, count, comb):
+    print("inside getTuples_rec lst",lst)
+    print("sizeLeft",sizeLeft)
+    print("trieNode",trieNode)
+    print("count",count)
+    print("comb",comb)
     if sizeLeft == 1:
         for x in lst:
             if x not in trieNode: 
@@ -203,9 +208,11 @@ def loadModelCount(combinationsFile):
         print("Wrong format of the file, use strategy 4 instead")
         return None
 
-def run(samples, rounds, DIMACSCNF, outputFile, twise, combinationsFile, funcNumber=2, seed=None):
+def run(samples, rounds, DIMACSCNF, outputFile, twise, combinationsFile, funcNumber=2, seed=None, sampler=None):
+    print("starting sampling.py..")
     tmpSampleFile = 'samples_temp.txt'
     pickleFile = 'saved.pickle'
+    
     if os.path.exists(tmpSampleFile):
         os.remove(tmpSampleFile)
     output = open(outputFile, 'w+')
@@ -235,31 +242,62 @@ def run(samples, rounds, DIMACSCNF, outputFile, twise, combinationsFile, funcNum
     count.update({-(i+1) : 0 for i in range(nvars)})
     weightFilePref = 'weights'
     trie = {}
+
+    print("generating weights..")
     
     generateWeights(count, nvars, maxComb, weightFilePref, 1, funcNumber)
+    print("generated weights")
     roundRes = [0]
     for roundN in range(rounds):
         print("Round "  + str(roundN+1) + ' started...')
         round_start = time.time()
         weightFile = weightFilePref + str(roundN+1)  + '.txt'
-        if roundN == 0:
-            waps.sample(samples, '', DIMACSCNF, None, weightFile, tmpSampleFile, pickleFile, 1, None, None, None, seed)
-        else:
-            waps.sample(samples, '', '', pickleFile, weightFile, tmpSampleFile, None, 1, None, None, None, seed)
+        if sampler == 1:
+            if roundN == 0:
+                waps.sample(samples, '', DIMACSCNF, None, weightFile, tmpSampleFile, pickleFile, 1, None, None, None, seed)
+            else:
+                waps.sample(samples, '', '', pickleFile, weightFile, tmpSampleFile, None, 1, None, None, None, seed)
+        
+        if sampler == 2:
+            cmd = "./cryptominisat5 --restart luby"
+            cmd += " --maple 0 --verb 0 --nobansol"
+            cmd += " --scc 1 -n1 --presimp 0 --polar rnd --freq 0.9999"
+            cmd += " --random %s --maxsol %s" % (seed, samples)
+            cmd += " %s" % (DIMACSCNF)
+            cmd += " --dumpresult %s > /dev/null 2>&1" % (tmpSampleFile)
+            print("cmd",cmd)
+            os.system(cmd)
+        print("samples",samples,"round",roundN)
         ns = open(tmpSampleFile)
         newSamplesLines = ns.readlines()
+        sample_count = 1
         for line in newSamplesLines:
+            if line.strip() == "SAT":
+                continue
             lineParts = line.strip().split(',')
-            s = list(map(int, lineParts[1].strip().split(' ')))
+            if sampler == 1:
+                s = list(map(int, lineParts[1].strip().split(' ')))[:-1]
+            if sampler == 2:
+                s = list(map(int, lineParts[0].strip().split(' ')))[:-1]
+            
             if twise == 0:
                     for val in s:
                         count[val] +=1
             else:
                 getTuples_rec(s, twise, trie, count, [])
-            sampleNumber = roundN * samples + int(lineParts[0].strip())
-            output.write(str(sampleNumber) + ',' + lineParts[1] + '\n')
+
+            if sampler == 1:
+                sampleNumber = roundN * samples + int(lineParts[0].strip(""))
+                output.write(str(sampleNumber) + ',' + lineParts[1] + '\n')
+
+            if sampler == 2:
+                sampleNumber = roundN * samples + sample_count
+                output.write(str(sampleNumber) + ',' + lineParts[0] + '\n')
+
+            sample_count += 1
         ns.close()
         os.remove(tmpSampleFile)
+        
         generateWeights(count, nvars, maxComb, weightFilePref, roundN+2, funcNumber)
         print("The time taken by round " + str(roundN+1) + " :" +  str(time.time()-round_start))
         print("Round " + str(roundN+1) + ' finished...')
@@ -271,7 +309,9 @@ def run(samples, rounds, DIMACSCNF, outputFile, twise, combinationsFile, funcNum
         print("Total number of sampled combinations " + str(sum(count.values()) / twise) )
     
     #cleanup
-    os.remove(pickleFile)
+
+    if sampler == 1:
+        os.remove(pickleFile)
     for roundN in range(rounds+1):
         os.remove(weightFilePref + str(roundN+1)  + '.txt')
 
@@ -286,11 +326,12 @@ def main():
     parser.add_argument("--combinations", type=str, default='', help="file with satisfiable feature combinations for strategy 1 or number of models with each literal for strategy 3", dest="combinationsFile")
     parser.add_argument("--seed", type=int, default=None, help="random seed", dest="seed")
     parser.add_argument('DIMACSCNF', nargs='?', type=str, default="", help='input cnf file')
+    parser.add_argument('--sampler', type=int, default=1, help='1: waps 2: cms',dest="sampler")
     args = parser.parse_args()
     if args.DIMACSCNF is '':
         parser.print_usage()
         sys.exit(1)
-    run(args.samples, args.rounds, args.DIMACSCNF, args.outputfile, args.twise, args.combinationsFile, args.funcNumber, args.seed)
+    run(args.samples, args.rounds, args.DIMACSCNF, args.outputfile, args.twise, args.combinationsFile, args.funcNumber,  args.seed, args.sampler)
 
 if __name__== "__main__":
     main()

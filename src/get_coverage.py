@@ -50,10 +50,14 @@ def check_coverage(samplefile, combfile, size):
             aggrCount.append(count[0])
     countRes = count[0]
     print("Number of combinations " + str(countRes))
+    print("combfile",combfile)
+    print("samplefile",samplefile)
+    print("size",size)
     if combfile:        
         with open(combfile, "r") as f:
             total = len(f.readlines()) -1
         coverage = countRes / total
+        print('total',total)
         print("Coverage " + str("%.2f" % coverage))
     else:
         coverage = None

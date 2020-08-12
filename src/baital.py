@@ -28,7 +28,7 @@ import sampling
 import os
 import math
 
-def run(dimacscnf, strategy, twise, samples, rounds, outputdir, outputfile, nocomb, combinations_file, seed):
+def run(dimacscnf, strategy, twise, samples, rounds, outputdir, outputfile, nocomb, combinations_file, seed, sampler):
     benchmarkName = os.path.basename(dimacscnf).split('.')[0]
     if not outputfile:
         outputfile = benchmarkName + '.samples'
@@ -47,13 +47,13 @@ def run(dimacscnf, strategy, twise, samples, rounds, outputdir, outputfile, noco
         
     #Generate samples
     if strategy == 1:
-        sampling.run(samplesperround, rounds, dimacscnf, samplesfile, twise, combinations_file, seed=seed)
+        sampling.run(samplesperround, rounds, dimacscnf, samplesfile, twise, combinations_file, seed=seed, sampler=sampler)
     elif strategy == 2:
-        sampling.run(samplesperround, rounds, dimacscnf, samplesfile, twise, '', seed=seed)
+        sampling.run(samplesperround, rounds, dimacscnf, samplesfile, twise,  '', seed=seed, sampler=sampler)
     elif strategy == 3:
-        sampling.run(samplesperround, rounds, dimacscnf, samplesfile, 0, count_file, seed=seed)
+        sampling.run(samplesperround, rounds, dimacscnf, samplesfile, 0, count_file, seed=seed, sampler=sampler)
     else:
-        sampling.run(samplesperround, rounds, dimacscnf, samplesfile, 0, '', seed=seed)
+        sampling.run(samplesperround, rounds, dimacscnf, samplesfile, 0,   '',  seed=seed, sampler=sampler)
 
     if samples != samplesperround*rounds:
         #remove extra samples in case of non divisible by number of rounds
@@ -91,6 +91,7 @@ def main():
     parser.add_argument("--no-combinations", action='store_true', help="if set, the list of satisfiable feature combinations and resulted coverage are not computed reducing the computation time. Ignored if strategy=1", dest='nocomb')
     parser.add_argument("--seed", type=int, default=None, help="random seed", dest="seed")
     parser.add_argument('DIMACSCNF', type=str, help='input cnf file in dimacs format')
+    parser.add_argument('--sampler', type=int, default=1, help='1: waps 2: cms',dest="sampler")
     args = parser.parse_args()
     if args.DIMACSCNF is '':
         parser.print_usage()
@@ -115,7 +116,7 @@ def main():
     if not os.path.exists(args.outputdir):
         os.makedirs(args.outputdir)
     
-    run(args.DIMACSCNF, args.strategy, args.twise, args.samples, args.rounds, args.outputdir, args.outputfile, args.nocomb, args.combinationsfile, args.seed)
+    run(args.DIMACSCNF, args.strategy, args.twise, args.samples, args.rounds, args.outputdir, args.outputfile, args.nocomb, args.combinationsfile, args.seed,args.sampler)
 
 if __name__== "__main__":
     main()
