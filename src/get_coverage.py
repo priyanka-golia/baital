@@ -55,7 +55,8 @@ def check_coverage(samplefile, combfile, size):
     print("size",size)
     if combfile:        
         with open(combfile, "r") as f:
-            total = len(f.readlines()) -1
+            #total = len(f.readlines()) -1
+            total = len(f.readlines())
         coverage = countRes / total
         print('total',total)
         print("Coverage " + str("%.2f" % coverage))

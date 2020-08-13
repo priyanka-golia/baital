@@ -50,6 +50,8 @@ def combinations(lst, size, acc, res):
         for i in range(len(lst)- size + 1):
             accI = acc[:] + [lst[i]]
             combinations(lst[i+1:], size -1, accI, res)
+
+
             
 def get_combinations(nVars, clauses, size, outputfile, combs):
     feasibleCombs = []
@@ -81,6 +83,7 @@ def get_combinations(nVars, clauses, size, outputfile, combs):
             curPerc += 0.05
             print(str(round(100 * curPerc)) + "% done")
     f.close()
+    print("final combinations to add",len(feasibleCombs))
     print("Time to get satisfiable combinations " + str(time.time() - start))
     return feasibleCombs
 

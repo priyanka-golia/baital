@@ -29,11 +29,11 @@ import sys
 import numpy as np
 
 def getTuples_rec(lst, sizeLeft, trieNode, count, comb):
-    print("inside getTuples_rec lst",lst)
+    '''print("inside getTuples_rec lst",lst)
     print("sizeLeft",sizeLeft)
     print("trieNode",trieNode)
     print("count",count)
-    print("comb",comb)
+    print("comb",comb)'''
     if sizeLeft == 1:
         for x in lst:
             if x not in trieNode: 
@@ -227,6 +227,17 @@ def run(samples, rounds, DIMACSCNF, outputFile, twise, combinationsFile, funcNum
             if line.startswith('p'):
                 nvars = int(line.split(' ')[2].strip())
                 break
+    
+    cind = []
+    cind_str = "c ind "
+    for var in range(nvars):
+        cind.append(var+1)
+        cind_str += str(var+1)+" "
+    cind_str += "0\n"
+
+    #print('cind', cind)
+    #print('cind_str',cind_str)
+    
     if twise == 0 and combinationsFile: #Strategy 3
         maxComb = loadModelCount(combinationsFile)
         funcNumber = 0
@@ -267,6 +278,70 @@ def run(samples, rounds, DIMACSCNF, outputFile, twise, combinationsFile, funcNum
             cmd += " --dumpresult %s > /dev/null 2>&1" % (tmpSampleFile)
             print("cmd",cmd)
             os.system(cmd)
+
+        if sampler == 3:
+            cmd = "./cryptominisat5-fixedrestart --restart fixed"
+            cmd += " --maple 0 --verb 0 --nobansol"
+            cmd += " --scc 1 -n1 --presimp 0 --polar rnd --freq 0.9999"
+            cmd += " --random %s --maxsol %s --fixedconfl 10" % (seed, samples)
+            cmd += " %s" % (DIMACSCNF)
+            cmd += " --dumpresult %s > /dev/null 2>&1" % (tmpSampleFile)
+            print("cmd",cmd)
+            os.system(cmd)
+
+        if sampler == 4:
+            
+
+            with open(DIMACSCNF, 'r') as f:
+                content_cnf = f.read()
+
+            content_cnf = cind_str + content_cnf
+
+            quicksamplerCNF = DIMACSCNF+".cnf"
+            f = open(quicksamplerCNF,"w")
+            f.write(content_cnf)
+            f.close()
+
+            cmd = "./quicksampler -n %d %s > /dev/null 2>&1" %(5*samples,quicksamplerCNF)
+            os.system(cmd)
+
+            cmd = "./z3 %s > /dev/null 2>&1" %(quicksamplerCNF)
+            os.system(cmd)
+
+            with open(quicksamplerCNF+'.samples', 'r') as f:
+                lines = f.readlines()
+
+            with open(quicksamplerCNF+'.samples.valid', 'r') as f:
+                validLines = f.readlines()
+
+            solList = []
+            samples_quicksampler = ''
+
+
+
+            for j in range(len(lines)):
+                if (validLines[j].strip() == '0'):
+                    continue
+                fields = lines[j].strip().split(':')
+                sol = ''
+                i = 0
+                # valutions are 0 and 1 and in the same order as c ind.
+                for x in list(fields[1].strip()):
+                    if (x == '0'):
+                        sol += ' -'+str(cind[i])
+                    else:
+                        sol += ' '+str(cind[i])
+                    i += 1
+                solList.append(sol)
+                samples_quicksampler += sol +" 0\n"
+                if (len(solList) == samples):
+                    break
+
+            f = open(tmpSampleFile,"w")
+            f.write(samples_quicksampler)
+            f.close()
+
+
         print("samples",samples,"round",roundN)
         ns = open(tmpSampleFile)
         newSamplesLines = ns.readlines()
@@ -274,15 +349,18 @@ def run(samples, rounds, DIMACSCNF, outputFile, twise, combinationsFile, funcNum
         for line in newSamplesLines:
             if line.strip() == "SAT":
                 continue
+            
             lineParts = line.strip().split(',')
+            
             if sampler == 1:
-                s = list(map(int, lineParts[1].strip().split(' ')))[:-1]
-            if sampler == 2:
+                s = list(map(int, lineParts[1].strip().split(' ')))
+            
+            if sampler == 2 or sampler == 3 or sampler == 4:
                 s = list(map(int, lineParts[0].strip().split(' ')))[:-1]
             
             if twise == 0:
-                    for val in s:
-                        count[val] +=1
+                for val in s:
+                    count[val] +=1
             else:
                 getTuples_rec(s, twise, trie, count, [])
 
@@ -290,9 +368,10 @@ def run(samples, rounds, DIMACSCNF, outputFile, twise, combinationsFile, funcNum
                 sampleNumber = roundN * samples + int(lineParts[0].strip(""))
                 output.write(str(sampleNumber) + ',' + lineParts[1] + '\n')
 
-            if sampler == 2:
+            if sampler == 2 or sampler == 3 or sampler == 4:
                 sampleNumber = roundN * samples + sample_count
-                output.write(str(sampleNumber) + ',' + lineParts[0] + '\n')
+                str_sample = " ".join(lineParts[0].strip().split(' ')[:-1])
+                output.write(str(sampleNumber) + ', ' + str_sample + '\n')
 
             sample_count += 1
         ns.close()

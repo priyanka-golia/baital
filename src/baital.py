@@ -89,9 +89,9 @@ def main():
     parser.add_argument("--rounds", type=int, default=10, help="number of rounds to generate samples", dest='rounds')
     parser.add_argument("--combinations", type=str, default='', help="file with pregenerated list of satisfiable feature combinations", dest="combinationsfile")
     parser.add_argument("--no-combinations", action='store_true', help="if set, the list of satisfiable feature combinations and resulted coverage are not computed reducing the computation time. Ignored if strategy=1", dest='nocomb')
-    parser.add_argument("--seed", type=int, default=None, help="random seed", dest="seed")
+    parser.add_argument("--seed", type=int, default=10, help="random seed", dest="seed")
     parser.add_argument('DIMACSCNF', type=str, help='input cnf file in dimacs format')
-    parser.add_argument('--sampler', type=int, default=1, help='1: waps 2: cms',dest="sampler")
+    parser.add_argument('--sampler', type=int, default=1, help='1: waps 2: cms 3: cms_updated',dest="sampler")
     args = parser.parse_args()
     if args.DIMACSCNF is '':
         parser.print_usage()
